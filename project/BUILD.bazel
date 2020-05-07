@@ -13,22 +13,24 @@ load("//tools/lint:lint.bzl", "add_lint_tests")
 load("//tools/skylark:test_tags.bzl", "vtk_test_tags")
 
 drake_cc_library(
-    name = "vol_actuator",
+    name = "vas_plant",
     srcs = [
-        "vol_actuator.cc",
+        "vas_plant.cc",
     ],
     hdrs = [
-        "vol_actuator.h",
+        "vas_plant.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//multibody/plant",
+        "//multibody/parsing",
+        "//examples/springboard:convenience"
     ],
 )
 
 drake_cc_binary(
-    name = "vol_actuator_test",
-    srcs = ["vol_actuator_test.cc"],
+    name = "vas_test",
+    srcs = ["vas_test.cc"],
     add_test_rule = 1,
     test_rule_args = [
         "--simulation_time=0.1",
@@ -44,7 +46,7 @@ drake_cc_binary(
         "//systems/framework:diagram",
         "//examples/springboard:easy_force",
         "//examples/springboard:easy_shape",
-        "//project:vol_actuator",
+        ":vas_plant",
         "//examples/springboard:convenience",
         "@gflags",
     ],
