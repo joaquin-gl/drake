@@ -67,22 +67,74 @@ Every issue must have at most one ``component`` label. The components are:
 
 - ``build system``
 
-  description: Bazel, CMake, dependencies, memory checkers, linters, etc.
+  Bazel, CMake, dependencies, memory checkers, linters, etc.
 
   typical team: kitware
 
 - ``continuous integration``
 
-  description: Jenkins, CDash, mirroring of externals, Drake website, etc.
+  Jenkins, CDash, mirroring of externals, Drake website, etc.
 
   typical team: kitware
 
 - ``distribution``
 
-  description: nightly binaries, monthly releases, docker, installation
+  Nightly binaries, monthly releases, docker, installation
   via apt or brew, etc.
 
   typical team: kitware
+
+- ``geometry externals``
+
+  VTK, FCL, drake_visualizer (core behavior), etc.
+
+  typical team: kitware
+
+- ``geometry general``
+
+  Geometry infrastructure or topics that defy categorization into other geometry
+  components.
+
+  typical team: dynamics
+
+- ``geometry illustration``
+
+  What and how geometry gets communicated to external visualizers.
+
+  typical team: dynamics
+
+- ``geometry perception``
+
+  How geometry appears in color, depth, and label images (via the RenderEngine API).
+
+  typical team: dynamics
+
+- ``geometry proximity``
+
+  Contact, distance, signed distance queries and related properties.
+
+  typical team: dynamics
+
+- ``multibody plant``
+
+  MultibodyPlant and related code and documentation
+  usually in ``drake/multibody``.
+
+  typical team: dynamics
+
+- ``simulator``
+
+  Simulator, integrators, and related code and documentation,
+  usually in ``drake/systems/analysis``.
+
+  typical team: dynamics
+
+- ``system framework``
+
+  System, Context, and related code and documentation,
+  usually in ``drake/systems/framework``.
+
+  typical team: dynamics
 
 .. _issues-priority:
 

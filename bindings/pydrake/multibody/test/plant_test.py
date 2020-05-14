@@ -33,6 +33,7 @@ from pydrake.multibody.tree import (
     SpatialInertia_,
     UniformGravityFieldElement_,
     UnitInertia_,
+    UniversalJoint_,
     WeldJoint_,
     world_index,
     world_model_instance,
@@ -63,8 +64,8 @@ from pydrake.multibody.benchmarks.acrobot import (
 )
 from pydrake.common import FindResourceOrThrow
 from pydrake.common.deprecation import install_numpy_warning_filters
-from pydrake.common.test_utilities.deprecation import catch_drake_warnings
 from pydrake.common.test_utilities import numpy_compare
+from pydrake.common.value import AbstractValue
 from pydrake.geometry import (
     Box,
     GeometryId,
@@ -82,7 +83,6 @@ from pydrake.math import (
 )
 from pydrake.systems.analysis import Simulator_
 from pydrake.systems.framework import (
-    AbstractValue,
     BasicVector_,
     DiagramBuilder_,
     System_,
@@ -142,15 +142,6 @@ class TestPlant(unittest.TestCase):
         self.assertTrue(np.all(np.isfinite(numpy_compare.to_float(x))))
         if nonzero:
             numpy_compare.assert_float_not_equal(x, 0.)
-
-    def test_deprecated_zero_argument_constructor(self):
-        with catch_drake_warnings(expected_count=1):
-            MultibodyPlant_[float]()
-
-    def test_deprecated_construction_api(self):
-        builder = DiagramBuilder_[float]()
-        with catch_drake_warnings(expected_count=1):
-            AddMultibodyPlantSceneGraph(builder)
 
     @numpy_compare.check_nonsymbolic_types
     def test_multibody_plant_construction_api(self, T):
@@ -629,10 +620,10 @@ class TestPlant(unittest.TestCase):
         # the arm is welded to the world, the gripper is welded to the
         # arm's end effector.
         wsg50_sdf_path = FindResourceOrThrow(
-            "drake/manipulation/models/" +
+            "drake/manipulation/models/"
             "wsg_50_description/sdf/schunk_wsg_50.sdf")
         iiwa_sdf_path = FindResourceOrThrow(
-            "drake/manipulation/models/" +
+            "drake/manipulation/models/"
             "iiwa_description/sdf/iiwa14_no_collision.sdf")
 
         # N.B. `Parser` only supports `MultibodyPlant_[float]`.
@@ -645,8 +636,7 @@ class TestPlant(unittest.TestCase):
         plant_f.Finalize()
         plant = to_type(plant_f, T)
 
-        # Test that we can get an actuation input port and a continuous state
-        # output port.
+        # Test that we can get the input and output ports.
         self.assertIsInstance(
             plant.get_actuation_input_port(iiwa_model), InputPort)
         self.assertIsInstance(
@@ -659,6 +649,7 @@ class TestPlant(unittest.TestCase):
             plant.get_generalized_contact_forces_output_port(
                 model_instance=gripper_model),
             OutputPort)
+        self.assertIsInstance(plant.get_body_poses_output_port(), OutputPort)
 
     @TemplateSystem.define("AppliedForceTestSystem_")
     def AppliedForceTestSystem_(T):
@@ -756,10 +747,10 @@ class TestPlant(unittest.TestCase):
         RollPitchYaw = RollPitchYaw_[T]
 
         wsg50_sdf_path = FindResourceOrThrow(
-            "drake/manipulation/models/" +
+            "drake/manipulation/models/"
             "wsg_50_description/sdf/schunk_wsg_50.sdf")
         iiwa_sdf_path = FindResourceOrThrow(
-            "drake/manipulation/models/" +
+            "drake/manipulation/models/"
             "iiwa_description/sdf/iiwa14_no_collision.sdf")
 
         # N.B. `Parser` only supports `MultibodyPlant_[float]`.
@@ -901,10 +892,10 @@ class TestPlant(unittest.TestCase):
         # the arm is welded to the world, the gripper is welded to the
         # arm's end effector.
         wsg50_sdf_path = FindResourceOrThrow(
-            "drake/manipulation/models/" +
+            "drake/manipulation/models/"
             "wsg_50_description/sdf/schunk_wsg_50.sdf")
         iiwa_sdf_path = FindResourceOrThrow(
-            "drake/manipulation/models/" +
+            "drake/manipulation/models/"
             "iiwa_description/sdf/iiwa14_no_collision.sdf")
 
         timestep = 0.0002
@@ -1049,7 +1040,41 @@ class TestPlant(unittest.TestCase):
         `HasJointActuatorNamed`.
         """
 
-        def make_weld(plant, P, C):
+        def make_ball_rpy_joint(plant, P, C):
+            return BallRpyJoint_[T](
+                name="ball_rpy",
+                frame_on_parent=P,
+                frame_on_child=C,
+                damping=2.,
+            )
+
+        def make_prismatic_joint(plant, P, C):
+            return PrismaticJoint_[T](
+                name="prismatic",
+                frame_on_parent=P,
+                frame_on_child=C,
+                axis=[1., 0., 0.],
+                damping=2.,
+            )
+
+        def make_revolute_joint(plant, P, C):
+            return RevoluteJoint_[T](
+                name="revolute",
+                frame_on_parent=P,
+                frame_on_child=C,
+                axis=[1., 0., 0.],
+                damping=2.,
+            )
+
+        def make_universal_joint(plant, P, C):
+            return UniversalJoint_[T](
+                name="universal",
+                frame_on_parent=P,
+                frame_on_child=C,
+                damping=2.,
+            )
+
+        def make_weld_joint(plant, P, C):
             # TODO(eric.cousineau): Update WeldJoint arg names to be consistent
             # with other joints.
             return WeldJoint_[T](
@@ -1059,37 +1084,12 @@ class TestPlant(unittest.TestCase):
                 X_PC=RigidTransform_[float](),
             )
 
-        def make_prismatic(plant, P, C):
-            return PrismaticJoint_[T](
-                name="prismatic",
-                frame_on_parent=P,
-                frame_on_child=C,
-                axis=[1., 0., 0.],
-                damping=2.,
-            )
-
-        def make_revolute(plant, P, C):
-            return RevoluteJoint_[T](
-                name="revolute",
-                frame_on_parent=P,
-                frame_on_child=C,
-                axis=[1., 0., 0.],
-                damping=2.,
-            )
-
-        def make_ball_rpy_joint(plant, P, C):
-            return BallRpyJoint_[T](
-                name="ball_rpy",
-                frame_on_parent=P,
-                frame_on_child=C,
-                damping=2.,
-            )
-
         make_joint_list = [
-            make_weld,
-            make_prismatic,
-            make_revolute,
             make_ball_rpy_joint,
+            make_prismatic_joint,
+            make_revolute_joint,
+            make_universal_joint,
+            make_weld_joint,
         ]
 
         for make_joint in make_joint_list:
@@ -1111,6 +1111,41 @@ class TestPlant(unittest.TestCase):
                 self.assertIsInstance(actuator, JointActuator_[T])
             plant.Finalize()
             self._test_joint_api(T, joint)
+
+            context = plant.CreateDefaultContext()
+            if joint.name() == "ball_rpy":
+                set_point = np.array([1., 2., 3.])
+                joint.set_angles(context=context, angles=set_point)
+                self.assertEqual(len(joint.get_angles(context=context)), 3)
+                joint.set_angular_velocity(context=context, w_FM=set_point)
+                self.assertEqual(
+                    len(joint.get_angular_velocity(context=context)), 3)
+            elif joint.name() == "prismatic":
+                set_point = 1.
+                joint.set_translation(context=context, translation=set_point)
+                self.assertIsInstance(
+                    joint.get_translation(context=context), T)
+                joint.set_translation_rate(context=context,
+                                           translation_dot=set_point)
+                self.assertIsInstance(
+                    joint.get_translation_rate(context=context), T)
+            elif joint.name() == "revolute":
+                set_point = 1.
+                joint.set_angle(context=context, angle=set_point)
+                self.assertIsInstance(joint.get_angle(context=context), T)
+            elif joint.name() == "universal":
+                set_point = np.array([1., 2.])
+                joint.set_angles(context=context, angles=set_point)
+                self.assertEqual(len(joint.get_angles(context=context)), 2)
+                joint.set_angular_rates(context=context, theta_dot=set_point)
+                self.assertEqual(
+                    len(joint.get_angular_rates(context=context)), 2)
+            elif joint.name() == "weld":
+                # No joint specifc methods to test
+                pass
+            else:
+                raise TypeError(
+                    "Joint type " + joint.name() + " not recognized.")
 
     @numpy_compare.check_all_types
     def test_multibody_add_frame(self, T):
@@ -1255,7 +1290,10 @@ class TestPlant(unittest.TestCase):
         plant = MultibodyPlant_[float](0.0)
         Parser(plant).AddModelFromFile(file_name)
         plant.Finalize()
-        plant.set_penetration_allowance(0.0001)
+        plant.set_penetration_allowance(penetration_allowance=0.0001)
+        plant.set_stiction_tolerance(v_stiction=0.001)
+        self.assertIsInstance(
+            plant.get_contact_penalty_method_time_scale(), float)
         contact_results_to_lcm = ContactResultsToLcmSystem(plant)
         context = contact_results_to_lcm.CreateDefaultContext()
         contact_results_to_lcm.get_input_port(0).FixValue(

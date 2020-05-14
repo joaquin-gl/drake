@@ -6,10 +6,10 @@
 #include <stdexcept>
 #include <string>
 
-#include <gtest/gtest.h>
 #include "pybind11/embed.h"
 #include "pybind11/eval.h"
 #include "pybind11/pybind11.h"
+#include <gtest/gtest.h>
 
 #include "drake/bindings/pydrake/test/test_util_pybind.h"
 
@@ -43,7 +43,8 @@ GTEST_TEST(CppParamTest, PrimitiveTypes) {
   ASSERT_TRUE(CheckPyParam<int>("int,"));
   ASSERT_TRUE(CheckPyParam<uint32_t>("np.uint32,"));
   ASSERT_TRUE(CheckPyParam<int64_t>("np.int64,"));
-  ASSERT_TRUE(CheckPyParam<py::object>("object,"));
+  // N.B. CheckPyParam<py::object>(...) should cause a compile-time failure.
+  ASSERT_TRUE(CheckPyParam<Object>("object,"));
 }
 
 // Dummy type.

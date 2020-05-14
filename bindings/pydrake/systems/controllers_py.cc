@@ -201,7 +201,8 @@ PYBIND11_MODULE(controllers, m) {
       WrapCallbacks(&LinearProgrammingApproximateDynamicProgramming),
       doc.LinearProgrammingApproximateDynamicProgramming.doc);
 
-  m.def("LinearQuadraticRegulator",
+  m.def(
+      "LinearQuadraticRegulator",
       [](const Eigen::Ref<const Eigen::MatrixXd>& A,
           const Eigen::Ref<const Eigen::MatrixXd>& B,
           const Eigen::Ref<const Eigen::MatrixXd>& Q,
@@ -214,7 +215,8 @@ PYBIND11_MODULE(controllers, m) {
       py::arg("N") = Eigen::Matrix<double, 0, 0>::Zero(),
       doc.LinearQuadraticRegulator.doc_5args);
 
-  m.def("DiscreteTimeLinearQuadraticRegulator",
+  m.def(
+      "DiscreteTimeLinearQuadraticRegulator",
       [](const Eigen::Ref<const Eigen::MatrixXd>& A,
           const Eigen::Ref<const Eigen::MatrixXd>& B,
           const Eigen::Ref<const Eigen::MatrixXd>& Q,
@@ -253,6 +255,8 @@ PYBIND11_MODULE(controllers, m) {
           doc.FiniteHorizonLinearQuadraticRegulatorOptions.ctor.doc)
       .def_readwrite("Qf", &FiniteHorizonLinearQuadraticRegulatorOptions::Qf,
           doc.FiniteHorizonLinearQuadraticRegulatorOptions.Qf.doc)
+      .def_readwrite("N", &FiniteHorizonLinearQuadraticRegulatorOptions::N,
+          doc.FiniteHorizonLinearQuadraticRegulatorOptions.N.doc)
       .def_readwrite("input_port_index",
           &FiniteHorizonLinearQuadraticRegulatorOptions::input_port_index,
           doc.FiniteHorizonLinearQuadraticRegulatorOptions.input_port_index
@@ -263,6 +267,12 @@ PYBIND11_MODULE(controllers, m) {
   DefReadWriteKeepAlive(&fhlqr_options, "u0",
       &FiniteHorizonLinearQuadraticRegulatorOptions::u0,
       doc.FiniteHorizonLinearQuadraticRegulatorOptions.u0.doc);
+  DefReadWriteKeepAlive(&fhlqr_options, "xd",
+      &FiniteHorizonLinearQuadraticRegulatorOptions::xd,
+      doc.FiniteHorizonLinearQuadraticRegulatorOptions.xd.doc);
+  DefReadWriteKeepAlive(&fhlqr_options, "ud",
+      &FiniteHorizonLinearQuadraticRegulatorOptions::ud,
+      doc.FiniteHorizonLinearQuadraticRegulatorOptions.ud.doc);
 
   py::class_<FiniteHorizonLinearQuadraticRegulatorResult> fhlqr_result(m,
       "FiniteHorizonLinearQuadraticRegulatorResult",
@@ -279,6 +289,15 @@ PYBIND11_MODULE(controllers, m) {
   DefReadUniquePtr(&fhlqr_result, "S",
       &FiniteHorizonLinearQuadraticRegulatorResult::S,
       doc.FiniteHorizonLinearQuadraticRegulatorResult.S.doc);
+  DefReadUniquePtr(&fhlqr_result, "k0",
+      &FiniteHorizonLinearQuadraticRegulatorResult::k0,
+      doc.FiniteHorizonLinearQuadraticRegulatorResult.k0.doc);
+  DefReadUniquePtr(&fhlqr_result, "sx",
+      &FiniteHorizonLinearQuadraticRegulatorResult::sx,
+      doc.FiniteHorizonLinearQuadraticRegulatorResult.sx.doc);
+  DefReadUniquePtr(&fhlqr_result, "s0",
+      &FiniteHorizonLinearQuadraticRegulatorResult::s0,
+      doc.FiniteHorizonLinearQuadraticRegulatorResult.s0.doc);
 
   m.def("FiniteHorizonLinearQuadraticRegulator",
       &FiniteHorizonLinearQuadraticRegulator, py::arg("system"),
@@ -286,6 +305,13 @@ PYBIND11_MODULE(controllers, m) {
       py::arg("R"),
       py::arg("options") = FiniteHorizonLinearQuadraticRegulatorOptions(),
       doc.FiniteHorizonLinearQuadraticRegulator.doc);
+
+  m.def("MakeFiniteHorizonLinearQuadraticRegulator",
+      &MakeFiniteHorizonLinearQuadraticRegulator, py::arg("system"),
+      py::arg("context"), py::arg("t0"), py::arg("tf"), py::arg("Q"),
+      py::arg("R"),
+      py::arg("options") = FiniteHorizonLinearQuadraticRegulatorOptions(),
+      doc.MakeFiniteHorizonLinearQuadraticRegulator.doc);
 }
 
 }  // namespace pydrake

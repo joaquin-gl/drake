@@ -11,6 +11,7 @@ from drake import lcmt_viewer_load_robot, lcmt_viewer_draw
 from pydrake.autodiffutils import AutoDiffXd
 from pydrake.common import FindResourceOrThrow
 from pydrake.common.test_utilities import numpy_compare
+from pydrake.common.value import AbstractValue
 from pydrake.lcm import DrakeLcm, Subscriber
 from pydrake.math import RigidTransform_
 from pydrake.symbolic import Expression
@@ -18,7 +19,6 @@ from pydrake.systems.analysis import (
     Simulator_,
 )
 from pydrake.systems.framework import (
-    AbstractValue,
     DiagramBuilder_,
     InputPort_,
     OutputPort_,
@@ -28,13 +28,9 @@ from pydrake.systems.sensors import (
     ImageDepth32F,
     ImageLabel16I
     )
-from pydrake.common.deprecation import DrakeDeprecationWarning
 
 
 class TestGeometry(unittest.TestCase):
-    def setUp(self):
-        warnings.simplefilter('error', DrakeDeprecationWarning)
-
     @numpy_compare.check_nonsymbolic_types
     def test_scene_graph_api(self, T):
         SceneGraph = mut.SceneGraph_[T]
@@ -186,9 +182,6 @@ class TestGeometry(unittest.TestCase):
         ]
 
         for cls in cls_list:
-            with self.assertRaises(DrakeDeprecationWarning) as exc:
-                cls()
-            self.assertIn(cls.__name__, str(exc.exception))
             a = cls.get_new_id()
             self.assertTrue(a.is_valid())
             b = cls.get_new_id()
@@ -387,8 +380,8 @@ class TestGeometry(unittest.TestCase):
         # response to invalid ids as evidence of correct binding.
         self.assertRaisesRegex(
             RuntimeError,
-            "The geometry given by id \\d+ does not reference a geometry" +
-            " that can be used in a signed distance query",
+            "The geometry given by id \\d+ does not reference a geometry"
+            + " that can be used in a signed distance query",
             query_object.ComputeSignedDistancePairClosestPoints,
             mut.GeometryId.get_new_id(), mut.GeometryId.get_new_id())
 

@@ -22,7 +22,6 @@ from pydrake.systems.analysis import (
     SimulatorStatus, Simulator, Simulator_,
     )
 from pydrake.systems.framework import (
-    AbstractValue,
     BasicVector, BasicVector_,
     Context, Context_,
     ContinuousState, ContinuousState_,
@@ -60,6 +59,9 @@ from pydrake.systems.primitives import (
     ZeroOrderHold,
     )
 
+with catch_drake_warnings(expected_count=2):
+    from pydrake.systems.framework import AbstractValue, Value
+
 # TODO(eric.cousineau): The scope of this test file and and `custom_test.py`
 # is poor. Move these tests into `framework_test` and `analysis_test`, and
 # ensure that the tests reflect this, even if there is some coupling.
@@ -92,6 +94,9 @@ class TestGeneral(unittest.TestCase):
     def test_system_base_api(self):
         # Test a system with a different number of inputs from outputs.
         system = Adder(3, 10)
+        self.assertEqual(
+            system.GetSystemType(),
+            "drake::systems::Adder<double>")
         self.assertEqual(system.num_input_ports(), 3)
         self.assertEqual(system.num_output_ports(), 1)
         u1 = system.GetInputPort("u1")
@@ -100,7 +105,9 @@ class TestGeneral(unittest.TestCase):
         self.assertEqual(u1.get_index(), 1)
         self.assertEqual(u1.size(), 10)
         self.assertIsNotNone(u1.ticket())
-        self.assertEqual(system.GetOutputPort("sum").get_index(), 0)
+        y = system.GetOutputPort("sum")
+        self.assertEqual(y.get_index(), 0)
+        self.assertIsInstance(y.Allocate(), Value[BasicVector])
         # TODO(eric.cousineau): Consolidate the main API tests for `System`
         # to this test point.
 
@@ -381,14 +388,20 @@ class TestGeneral(unittest.TestCase):
         size = 3
 
         builder = DiagramBuilder()
+        self.assertTrue(builder.empty())
         adder0 = builder.AddSystem(Adder(2, size))
         adder0.set_name("adder0")
+        self.assertFalse(builder.empty())
 
         adder1 = builder.AddSystem(Adder(2, size))
         adder1.set_name("adder1")
 
         integrator = builder.AddSystem(Integrator(size))
         integrator.set_name("integrator")
+
+        self.assertEqual(
+            builder.GetMutableSystems(),
+            [adder0, adder1, integrator])
 
         builder.Connect(adder0.get_output_port(0), adder1.get_input_port(0))
         builder.Connect(adder1.get_output_port(0),
@@ -451,8 +464,8 @@ class TestGeneral(unittest.TestCase):
             t = times[i]
             self.assertEqual(context_i.get_time(), t)
             xc = context_i.get_continuous_state_vector().CopyToVector()
-            xc_expected = (float(i) / (n - 1) * (xc_final - xc_initial) +
-                           xc_initial)
+            xc_expected = (float(i) / (n - 1) * (xc_final - xc_initial)
+                           + xc_initial)
             self.assertTrue(np.allclose(xc, xc_expected))
 
     def test_simulator_context_manipulation(self):
