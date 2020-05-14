@@ -12,6 +12,13 @@ load("//tools/install:install_data.bzl", "install_data")
 load("//tools/lint:lint.bzl", "add_lint_tests")
 load("//tools/skylark:test_tags.bzl", "vtk_test_tags")
 
+filegroup(
+  name = "output",
+  srcs = glob([
+      "*.csv"
+    ]),
+)
+
 drake_cc_library(
     name = "vas_plant",
     srcs = [
@@ -32,6 +39,7 @@ drake_cc_binary(
     name = "vas_test",
     srcs = ["vas_test.cc"],
     add_test_rule = 1,
+    data = ["//project:output"],
     test_rule_args = [
         "--simulation_time=0.1",
         "--target_realtime_rate=0.0",
@@ -44,10 +52,10 @@ drake_cc_binary(
         "//multibody/plant",
         "//systems/analysis:simulator",
         "//systems/framework:diagram",
-        "//examples/springboard:easy_force",
+        "//examples/springboard:csv_logger",
         "//examples/springboard:easy_shape",
-        ":vas_plant",
         "//examples/springboard:convenience",
+        ":vas_plant",
         "@gflags",
     ],
 )

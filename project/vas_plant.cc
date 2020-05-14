@@ -106,18 +106,18 @@ multibody::ModelInstanceIndex VolumetricActuatorSystem::AddVASToPlant() {
         plant_->AddRigidBody(connect_name, mii_, M_Connectcm);
 
       // connect body yellow sphere
-      plant_->RegisterVisualGeometry(
-        connect_body, math::RigidTransformd(),
-        geometry::Sphere(r_connect),
-        connect_name + "_visual",
-        Eigen::Vector4d(1, 0.6, 1, 0.3));
+      // plant_->RegisterVisualGeometry(
+      //   connect_body, math::RigidTransformd(),
+      //   geometry::Sphere(r_connect),
+      //   connect_name + "_visual",
+      //   Eigen::Vector4d(1, 0.6, 1, 0.3));
 
       // joint from VA to connect body
       const multibody::Joint<double>& joint = plant_->AddJoint<drake::multibody::PrismaticJoint>(
         connect_name + "_joint",
         center, std::nullopt,
         connect_body, std::nullopt,
-        unitVlist()[j], r_cl_, r_op_); // set direction, and joint limits
+        unitVlist()[j], r_cl_, r_op_, 0); // set direction, and joint limits
       // plant_->AddJointActuator(connect_name + "_ic", joint_ic);
       // drake::log()->info("Created Joint {}", joint.name());
       std::string n = joint.name();
@@ -173,7 +173,7 @@ multibody::ModelInstanceIndex VolumetricActuatorSystem::AddVASToPlant() {
   return mii_;
 }
 
-void VolumetricActuatorSystem::AddBushing(const std::string body0_name, const std::string body1_name, const double k_z, const double d_z) {
+void VolumetricActuatorSystem::AddBushing(const std::string body0_name, const std::string body1_name, const double k_xyz, const double d_xyz, const double k_012, const double d_012) {
 
   // add visuals to the two bodies to weld together
   plant_->RegisterVisualGeometry(
@@ -192,10 +192,15 @@ void VolumetricActuatorSystem::AddBushing(const std::string body0_name, const st
   const multibody::Frame<double>& frame1 = plant_->GetBodyByName(body1_name).body_frame();
 
   // create constants matrix to pass to bushing
-  const Vector3d force_stiffness_constants{30000, 30000, k_z};  // N/m
-  const Vector3d force_damping_constants{1500, 1500, d_z};    // N·s/m
-  const Vector3d torque_stiffness_constants{30000, 30000, 30000};     // N·m/rad
-  const Vector3d torque_damping_constants{1500, 1500, 1500};       // N·m·s/rad
+  // const Vector3d force_stiffness_constants{30000, 30000, k_z};  // N/m
+  // const Vector3d force_damping_constants{1500, 1500, d_z};    // N·s/m
+  // const Vector3d torque_stiffness_constants{30000, 30000, 30000};     // N·m/rad
+  // const Vector3d torque_damping_constants{1500, 1500, 1500};       // N·m·s/rad
+
+  const Vector3d force_stiffness_constants{k_xyz, k_xyz, k_xyz};  // N/m
+  const Vector3d force_damping_constants{d_xyz, d_xyz, d_xyz};    // N·s/m
+  const Vector3d torque_stiffness_constants{k_012, k_012, k_012};     // N·m/rad
+  const Vector3d torque_damping_constants{d_012, d_012, d_012};       // N·m·s/rad
 
   // Add a bushing force element where the joint between body0 and body1
   plant_->AddForceElement<multibody::LinearBushingRollPitchYaw>(
@@ -220,8 +225,20 @@ void VolumetricActuatorSystem::InitPose(systems::Context<double>* context) {
     std::string name = plant_->get_joint(joint_index).name();
     const multibody::PrismaticJoint<double>& joint =
       plant_->GetJointByName<multibody::PrismaticJoint>(name);
+    // joint.set_translation(context, (r_cl_+r_op_)/2);
     joint.set_translation(context, r_cl_);
   }
+}
+
+std::vector<double> VolumetricActuatorSystem::GetJointTranslations(systems::Context<double>* context) {
+  std::vector<double> translations;
+  for (auto joint_index : plant_->GetJointIndices(mii_)) {
+    std::string name = plant_->get_joint(joint_index).name();
+    const multibody::PrismaticJoint<double>& joint =
+      plant_->GetJointByName<multibody::PrismaticJoint>(name);
+    translations.push_back(joint.get_translation(*context));
+  }
+  return translations;
 }
 
 bool VolumetricActuatorSystem::Neighboring(unsigned int i_1, unsigned int i_2) {

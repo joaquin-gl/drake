@@ -34,8 +34,9 @@ class VolumetricActuatorSystem : public systems::LeafSystem<double> {
 
     multibody::ModelInstanceIndex AddVASToPlant();
 
-    void AddBushing(const std::string body0_name, const std::string body1_name, const double k_z, const double d_z);
+    void AddBushing(const std::string body0_name, const std::string body1_name, const double k_xyz, const double d_xyz, const double k_012, const double d_012);
     void InitPose(systems::Context<double>* context);
+    std::vector<double> GetJointTranslations(systems::Context<double>* context);
 
   private:
 

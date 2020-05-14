@@ -13,7 +13,7 @@
 
 #include "drake/project/vas_plant.h"
 #include "drake/examples/springboard/convenience.h"
-
+#include "drake/examples/springboard/csv_logger.h"
 #include "drake/examples/springboard/easy_shape.h"
 
 
@@ -37,7 +37,7 @@ DEFINE_double(target_realtime_rate, 1.0,
 DEFINE_double(duration, 5.0,
             "Desired duration of the simulation in seconds.");
 
-DEFINE_double(time_step, 3e-3,
+DEFINE_double(time_step, 2e-4,
             "If greater than zero, the plant is modeled as a system with "
             "discrete updates and period equal to this time_step. "
             "If 0, the plant is modeled as a continuous system.");
@@ -45,10 +45,16 @@ DEFINE_double(time_step, 3e-3,
 DEFINE_string(sys, "box",
             "hi");
 
-DEFINE_double(k_z, 0,
+DEFINE_double(k_xyz, 100,
             "spring stiffness in joint");
 
-DEFINE_double(d_z, 0,
+DEFINE_double(d_xyz, .001,
+            "spring damping in joint");
+
+DEFINE_double(k_012, .01,
+            "spring stiffness in joint");
+
+DEFINE_double(d_012, .00001,
             "spring damping in joint");
 
 int do_main() {
@@ -104,15 +110,26 @@ int do_main() {
 
   examples::AddTableToPlant(
       0.5, 0.5, 0.01,
-      math::RigidTransformd(-0.1*Vector3d::UnitZ()), &plant);
+      math::RigidTransformd(math::RollPitchYawd(0.05, 0.05, 0), -0.1*Vector3d::UnitZ()), &plant);
 
   plant.mutable_gravity_field().set_gravity_vector(
       -9.81 * Vector3d::UnitZ());
 
   //add bushing
-  vas->AddBushing("VA_0_2", "VA_4_5", FLAGS_k_z, FLAGS_d_z);
+  vas->AddBushing("VA_0_2", "VA_4_5", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  vas->AddBushing("VA_0_0", "VA_1_3", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  vas->AddBushing("VA_0_1", "VA_2_4", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  vas->AddBushing("VA_1_1", "VA_3_4", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  vas->AddBushing("VA_2_0", "VA_3_3", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  vas->AddBushing("VA_2_2", "VA_6_5", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  vas->AddBushing("VA_1_2", "VA_5_5", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  vas->AddBushing("VA_3_2", "VA_7_5", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  vas->AddBushing("VA_4_0", "VA_5_3", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  vas->AddBushing("VA_4_1", "VA_6_4", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  vas->AddBushing("VA_6_0", "VA_7_3", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  vas->AddBushing("VA_7_4", "VA_5_1", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
   plant.Finalize();
-  // examples::PrintMBPStats(&plant);
+  examples::PrintMBPStats(&plant);
   // examples::PrintBodyIndices(&plant);
 
   // // connect controller and plant
@@ -138,14 +155,37 @@ int do_main() {
   vas->InitPose(&plant_context);
 
   systems::Simulator<double> simulator(*diagram, std::move(diagram_context));
-  // auto& simulator_context = simulator.get_mutable_context();
+  auto& simulator_context = simulator.get_mutable_context();
 
   simulator.set_publish_every_time_step(false);
   simulator.set_target_realtime_rate(FLAGS_target_realtime_rate);
   simulator.Initialize();
 
-  simulator.AdvanceTo(FLAGS_duration);
-  // double current_time = simulator_context.get_time();
+  // simulator.AdvanceTo(FLAGS_duration);
+
+  const std::string joint_name = "VA_0_2_joint";
+  // examples::CSVLogger logger("drake/project/output.csv",std::vector<std::string>{
+  //   "time", joint_name, joint_name + " low", joint_name + " upp"});
+  examples::CSVLogger logger("drake/project/output.csv",std::vector<std::string>{});
+  double current_time = 0.0;
+  const double time_step = 0.005;
+
+  while (current_time < FLAGS_duration) {
+
+    const multibody::PrismaticJoint<double>& joint =
+      plant.GetJointByName<multibody::PrismaticJoint>(joint_name);
+    // logger.Log(std::vector<double>{
+    //   current_time, joint.get_translation(plant_context), joint.position_lower_limit(), joint.position_upper_limit()});
+
+    std::vector<double> output = vas->GetJointTranslations(&plant_context);
+    output.push_back(joint.position_lower_limit());
+    output.push_back(joint.position_upper_limit());
+    output.push_back(current_time);
+    logger.Log(output);
+
+    simulator.AdvanceTo(current_time + time_step);
+    current_time = simulator_context.get_time();
+  }
 
   return 0;
 }
