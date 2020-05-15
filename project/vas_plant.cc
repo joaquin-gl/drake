@@ -4,7 +4,7 @@ namespace drake {
 namespace project {
 
 namespace {
-std::vector<Vector3d> default_shape_vec() {
+std::vector<Vector3d> box_shape() {
   return std::vector<Vector3d>{
     Vector3d(0, 0, 0),
     Vector3d(1, 0, 0),
@@ -36,29 +36,29 @@ std::vector<std::string> direction_names() {
 }  // namespace
 
 VolumetricActuatorSystem::VolumetricActuatorSystem(multibody::MultibodyPlant<double>* plant)
-  : VolumetricActuatorSystem(plant, .008,            // m (kg)
-                             default_shape_vec(), // 2x2x2 shape
+  : VolumetricActuatorSystem(plant,
+                             box_shape(),     // 2x2x2 shape
+                             .008,            // m (kg)
                              0.03485,         // closed diameter
                              0.04265          // open diameter
                              ) {}
 
 VolumetricActuatorSystem::VolumetricActuatorSystem(multibody::MultibodyPlant<double>* plant, const std::vector<Vector3d>& shape_arg)
-  : VolumetricActuatorSystem(plant, .008,            // m (kg)
-                             shape_arg, // 2x2x2 shape
+  : VolumetricActuatorSystem(plant,
+                             shape_arg,       // given shape
+                             .008,            // m (kg)
                              0.03485,         // closed diameter
                              0.04265          // open diameter
-                           ) {}
+                             ) {}
 
 VolumetricActuatorSystem::VolumetricActuatorSystem(multibody::MultibodyPlant<double>* plant,
-  double m_arg, const std::vector<Vector3d>& shape_arg, double r_cl_arg, double r_op_arg)
-  : plant_(plant), m_(m_arg), shape_(shape_arg), r_cl_(r_cl_arg), r_op_(r_op_arg) {
+  const std::vector<Vector3d>& shape_arg, double m_arg, double r_cl_arg, double r_op_arg)
+  : plant_(plant), shape_(shape_arg), m_(m_arg), r_cl_(r_cl_arg), r_op_(r_op_arg) {
 
   // log()->info("{} actuators in system.", shape_.size());
-  // this->DeclareInputPort("VAS_force", systems::kVectorValued, 1);
-  AddVASToPlant();
 }
 
-multibody::ModelInstanceIndex VolumetricActuatorSystem::AddVASToPlant() {
+void VolumetricActuatorSystem::AddVASToPlant() {
 
   DRAKE_THROW_UNLESS(plant_ != nullptr);
 
@@ -90,7 +90,7 @@ multibody::ModelInstanceIndex VolumetricActuatorSystem::AddVASToPlant() {
       center_name, mii_, center_inertia);
 
     // show axes cause why not
-    // ShowAxes(center_name, r_cl_/2);
+    ShowAxes(center_name, r_cl_/2);
 
     // register visual, collision geometries
     plant_->RegisterVisualGeometry(
@@ -147,16 +147,23 @@ multibody::ModelInstanceIndex VolumetricActuatorSystem::AddVASToPlant() {
       std::string neighbor_name = "VA_" + std::to_string(HasNeighbor(i, spoke_direction)) + "_" + neighbor_direction;
       if (plant_->HasBodyNamed(neighbor_name)) {
         // log()->info("Weld {} to {}", spoke_name, neighbor_name);
-        AddConnect(spoke_name, neighbor_name, 1000, .01, .1, .00001);
+        AddConnect(spoke_name, neighbor_name, spoke_params_[0], spoke_params_[1], spoke_params_[2], spoke_params_[3]);
+
       } else if (HasNeighbor(i, spoke_direction) < 0) {
         // log()->info("Collide {}", spoke_name);
-        AddCollide(spoke_name, 0.3, 0.3);
+        AddCollide(spoke_name, spoke_params_[4], spoke_params_[5]);
 
       }
     }
   }
-  return mii_;
 }
+
+void VolumetricActuatorSystem::SetParams(
+  const double k_xyz, const double d_xyz, const double k_012, const double d_012,
+  const double static_friction, const double dynamic_friction) {
+
+  spoke_params_ = std::vector<double>{k_xyz, d_xyz, k_012, d_012, static_friction, dynamic_friction};
+  }
 
 void VolumetricActuatorSystem::AddConnect(
   const std::string body0_name, const std::string body1_name,
@@ -231,6 +238,16 @@ void VolumetricActuatorSystem::InitPose(systems::Context<double>* context) {
   }
 }
 
+std::vector<math::RigidTransformd> VolumetricActuatorSystem::GetCenterPoses(systems::Context<double>* context) {
+  std::vector<math::RigidTransformd> poses;
+  for (unsigned int i=0; i<shape_.size(); i++) {
+    // math::RigidTransformd pose = plant_->GetFreeBodyPose(*context, plant_->GetBodyByName("VA_" + std::to_string(i)));
+    math::RigidTransformd pose = plant_->EvalBodyPoseInWorld(*context, plant_->GetBodyByName("VA_" + std::to_string(i)));
+    poses.push_back(pose);
+  }
+  return poses;
+}
+
 std::vector<double> VolumetricActuatorSystem::GetJointTranslations(systems::Context<double>* context) {
   std::vector<double> translations;
   for (auto joint_index : plant_->GetJointIndices(mii_)) {
@@ -242,6 +259,8 @@ std::vector<double> VolumetricActuatorSystem::GetJointTranslations(systems::Cont
   return translations;
 }
 
+// std::vector<double> VolumetricActuatorSystem::GetCenterStates
+
 int VolumetricActuatorSystem::HasNeighbor(unsigned int i, Vector3d direction) {
   // returns index of neighbor body if it finds one
   Vector3d neighbor_pos = shape_[i] + direction;
@@ -249,19 +268,6 @@ int VolumetricActuatorSystem::HasNeighbor(unsigned int i, Vector3d direction) {
     if (neighbor_pos == shape_[j]) return j;
   }
   return -1;
-}
-
-std::string VolumetricActuatorSystem::Neighboring(unsigned int i_1, unsigned int i_2) {
-  // return the name of the direction (px, ny, etc)
-  // if the distance between the bodies is 1 (neighbors)
-  Vector3d disp_vector = shape_[i_2] - shape_[i_1];
-  if (disp_vector.norm() == 1) {
-    for (unsigned int i=0; i<direction_vectors().size(); i++) {
-      if (disp_vector == direction_vectors()[i]) return direction_names()[i];
-    }
-  }
-  // if not, return empty string
-  return "";
 }
 
 void VolumetricActuatorSystem::ShowAxes(std::string bodyname, double scale) {

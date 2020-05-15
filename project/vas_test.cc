@@ -47,7 +47,18 @@ DEFINE_string(sys, "box",
             "System formation of the volumetric actuators. Can be:"
             "box, worm, or pants for now.");
 
-DEFINE_double(force, .001,
+DEFINE_double(k_xyz, 10000, "hi");
+DEFINE_double(d_xyz, 10, "hi");
+DEFINE_double(k_012, 100, "hi");
+DEFINE_double(d_012, .001, "hi");
+DEFINE_double(sf, .3, "hi");
+DEFINE_double(df, .3, "hi");
+
+DEFINE_double(t0, 2, "hi");
+DEFINE_double(t1, 5, "hi");
+DEFINE_double(t2, 5, "hi");
+
+DEFINE_double(force, 10,
             "Force of actuator");
 
 int do_main() {
@@ -98,42 +109,34 @@ int do_main() {
       multibody::AddMultibodyPlantSceneGraph(&builder, FLAGS_time_step);
   geometry::ConnectDrakeVisualizer(&builder, scene_graph);
 
-  auto vas = builder.AddSystem(std::make_unique<VolumetricActuatorSystem>(&plant, sys));
+  auto vas = builder.AddSystem(std::make_unique<VolumetricActuatorSystem>(&plant, sys, 0.407747197, 0.0381, 0.06985));
   vas->set_name("vas");
 
   auto controller = builder.AddSystem(std::make_unique<SequenceController>(sys.size(), 6));
   controller->set_name("controller");
 
+  // examples::AddTableToPlant(
+  //     4, 4, 0.1,
+  //     math::RigidTransformd(math::RollPitchYawd(0.05, 0.05, 0), -0.3*Vector3d::UnitZ()), &plant);
   examples::AddTableToPlant(
-      0.5, 0.5, 0.1,
-      math::RigidTransformd(math::RollPitchYawd(0.05, 0.05, 0), -0.3*Vector3d::UnitZ()), &plant);
+      10, 10, 0.1,
+      math::RigidTransformd(-0.3*Vector3d::UnitZ()), &plant);
 
   plant.mutable_gravity_field().set_gravity_vector(
       -9.81 * Vector3d::UnitZ());
 
-  //add bushing
-  // vas->AddConnect("VA_0_pz", "VA_4_nz", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  // vas->AddConnect("VA_0_px", "VA_1_nx", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  // vas->AddConnect("VA_0_py", "VA_2_ny", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  // vas->AddConnect("VA_1_py", "VA_3_ny", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  // vas->AddConnect("VA_2_px", "VA_3_nx", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  // vas->AddConnect("VA_2_pz", "VA_6_nz", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  // vas->AddConnect("VA_1_pz", "VA_5_nz", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  // vas->AddConnect("VA_3_pz", "VA_7_nz", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  // vas->AddConnect("VA_4_px", "VA_5_nx", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  // vas->AddConnect("VA_4_py", "VA_6_ny", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  // vas->AddConnect("VA_6_px", "VA_7_nx", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  // vas->AddConnect("VA_7_ny", "VA_5_py", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  vas->SetParams(
+    FLAGS_k_xyz,
+    FLAGS_d_xyz,
+    FLAGS_k_012,
+    FLAGS_d_012,
+    FLAGS_sf,
+    FLAGS_df);
+  vas->AddVASToPlant();
 
   plant.Finalize();
   examples::PrintMBPStats(&plant);
   // examples::PrintBodyIndices(&plant);
-
-  // controller->PrintState();
-  Eigen::VectorXd state_send(8);
-  state_send << FLAGS_force, FLAGS_force, FLAGS_force, FLAGS_force, FLAGS_force, FLAGS_force, FLAGS_force, FLAGS_force;
-  controller->SetState(state_send);
-  // controller->PrintState();
 
   // connect controller and plant
   builder.Connect(controller->get_output_port(), plant.get_actuation_input_port());
@@ -160,24 +163,71 @@ int do_main() {
 
   // simulator.AdvanceTo(FLAGS_duration);
 
-  const std::string joint_name = "VA_0_pz";
-  // examples::CSVLogger logger("drake/project/output.csv",std::vector<std::string>{
-  //   "time", joint_name, joint_name + " low", joint_name + " upp"});
   examples::CSVLogger logger("drake/project/output.csv",std::vector<std::string>{});
   double current_time = 0.0;
   const double time_step = 0.005;
 
   while (current_time < FLAGS_duration) {
 
-    const multibody::PrismaticJoint<double>& joint =
-      plant.GetJointByName<multibody::PrismaticJoint>(joint_name);
-    // logger.Log(std::vector<double>{
-    //   current_time, joint.get_translation(plant_context), joint.position_lower_limit(), joint.position_upper_limit()});
+    if (current_time >= FLAGS_t0 && current_time < FLAGS_t0 + time_step) {
+      log()->info("first trigger");
+      Eigen::VectorXd state(8);
+      state << FLAGS_force, FLAGS_force,
+              -FLAGS_force, -FLAGS_force,
+              -FLAGS_force, -FLAGS_force,
+              -FLAGS_force, -FLAGS_force;
+      controller->SetState(state);
+      // controller->PrintState();
+    }
+    if (current_time >= FLAGS_t1 && current_time < FLAGS_t1 + time_step) {
+      log()->info("second trigger");
+      Eigen::VectorXd state(8);
+      state << FLAGS_force, FLAGS_force,
+              FLAGS_force, FLAGS_force,
+              FLAGS_force, FLAGS_force,
+              FLAGS_force, FLAGS_force;
+      controller->SetState(state);
+      // controller->PrintState();
+    }
+    if (current_time >= FLAGS_t2 && current_time < FLAGS_t2 + time_step) {
+      log()->info("third trigger");
+      Eigen::VectorXd state(8);
+      state << -FLAGS_force, -FLAGS_force,
+               -FLAGS_force, -FLAGS_force,
+               -FLAGS_force, -FLAGS_force,
+               -FLAGS_force, -FLAGS_force;
+      controller->SetState(state);
+      // controller->PrintState();
+    }
 
-    std::vector<double> output = vas->GetJointTranslations(&plant_context);
-    output.push_back(joint.position_lower_limit());
-    output.push_back(joint.position_upper_limit());
+    std::vector<double> output;
+
+    // // joint translations output
+    // const multibody::PrismaticJoint<double>& joint =
+    //   plant.GetJointByName<multibody::PrismaticJoint>("VA_0_pz");
+    // std::vector<double> output = vas->GetJointTranslations(&plant_context);
+    // output.push_back(joint.position_lower_limit());
+    // output.push_back(joint.position_upper_limit());
+    // output.push_back(current_time);
+
+    // body pitch output
+    std::vector<math::RigidTransformd> poses = vas->GetCenterPoses(&plant_context);
+    for (auto pose : poses) {
+      math::RollPitchYawd rpy(pose.rotation());
+      Vector3d xyz(pose.translation());
+      // log()->info(rpy.pitch_angle());
+      // output.push_back(rpy.pitch_angle());
+      output.push_back(xyz(0));
+    }
+    // math::RigidTransformd pose = poses[1];
+    // math::RollPitchYawd rpy(pose.rotation());
+    // Vector3d xyz(pose.translation());
+    // // log()->info(rpy.pitch_angle());
+    // // output.push_back(rpy.pitch_angle());
+    // output.push_back(xyz(0));
+
     output.push_back(current_time);
+
     logger.Log(output);
 
     simulator.AdvanceTo(current_time + time_step);

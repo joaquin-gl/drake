@@ -29,29 +29,39 @@ class VolumetricActuatorSystem : public systems::LeafSystem<double> {
 
     VolumetricActuatorSystem(multibody::MultibodyPlant<double>* plant);
     VolumetricActuatorSystem(multibody::MultibodyPlant<double>* plant, const std::vector<Vector3d>& shape_arg);
-    VolumetricActuatorSystem(multibody::MultibodyPlant<double>* plant, double m_arg, const std::vector<Vector3d>& shape_arg,
-      double r_cl_arg, double r_op_arg);
+    VolumetricActuatorSystem(multibody::MultibodyPlant<double>* plant, const std::vector<Vector3d>& shape_arg,
+      double m_arg, double r_cl_arg, double r_op_arg);
 
-    multibody::ModelInstanceIndex AddVASToPlant();
+    void SetParams(
+      const double k_xyz, const double d_xyz, const double k_012, const double d_012,
+      const double static_friction, const double dynamic_friction);
+
+    void AddVASToPlant();
+
+    void InitPose(systems::Context<double>* context);
+
+    std::vector<math::RigidTransformd> GetCenterPoses(systems::Context<double>* context);
+    std::vector<double> GetJointTranslations(systems::Context<double>* context);
+
+  private:
+
 
     void AddConnect(const std::string body0_name, const std::string body1_name,
       const double k_xyz, const double d_xyz, const double k_012, const double d_012);
     void AddCollide(const std::string body_name,
       const double static_friction, const double dynamic_friction);
-    void InitPose(systems::Context<double>* context);
-    std::vector<double> GetJointTranslations(systems::Context<double>* context);
-
-  private:
 
     int HasNeighbor(unsigned int i, Vector3d direction);
-    std::string Neighboring(unsigned int i_1, unsigned int i_2);
     void ShowAxes(std::string bodyname, double scale);
 
     multibody::MultibodyPlant<double>* plant_;
-    double m_;
     std::vector<Vector3d> shape_;
+    double m_;
     double r_cl_;
     double r_op_;
+
+    std::vector<double> spoke_params_{1000, .01, .1, .00001, .3, .3};
+
     multibody::ModelInstanceIndex mii_;
 };
 
