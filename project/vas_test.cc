@@ -12,6 +12,7 @@
 #include "drake/systems/framework/diagram_builder.h"
 
 #include "drake/project/vas_plant.h"
+#include "drake/project/sequence_controller.h"
 #include "drake/examples/springboard/convenience.h"
 #include "drake/examples/springboard/csv_logger.h"
 #include "drake/examples/springboard/easy_shape.h"
@@ -37,25 +38,17 @@ DEFINE_double(target_realtime_rate, 1.0,
 DEFINE_double(duration, 5.0,
             "Desired duration of the simulation in seconds.");
 
-DEFINE_double(time_step, 2e-4,
+DEFINE_double(time_step, 3e-4,
             "If greater than zero, the plant is modeled as a system with "
             "discrete updates and period equal to this time_step. "
             "If 0, the plant is modeled as a continuous system.");
 
 DEFINE_string(sys, "box",
-            "hi");
+            "System formation of the volumetric actuators. Can be:"
+            "box, worm, or pants for now.");
 
-DEFINE_double(k_xyz, 100,
-            "spring stiffness in joint");
-
-DEFINE_double(d_xyz, .001,
-            "spring damping in joint");
-
-DEFINE_double(k_012, .01,
-            "spring stiffness in joint");
-
-DEFINE_double(d_012, .00001,
-            "spring damping in joint");
+DEFINE_double(force, .001,
+            "Force of actuator");
 
 int do_main() {
   systems::DiagramBuilder<double> builder;
@@ -108,38 +101,42 @@ int do_main() {
   auto vas = builder.AddSystem(std::make_unique<VolumetricActuatorSystem>(&plant, sys));
   vas->set_name("vas");
 
+  auto controller = builder.AddSystem(std::make_unique<SequenceController>(sys.size(), 6));
+  controller->set_name("controller");
+
   examples::AddTableToPlant(
-      0.5, 0.5, 0.01,
-      math::RigidTransformd(math::RollPitchYawd(0.05, 0.05, 0), -0.1*Vector3d::UnitZ()), &plant);
+      0.5, 0.5, 0.1,
+      math::RigidTransformd(math::RollPitchYawd(0.05, 0.05, 0), -0.3*Vector3d::UnitZ()), &plant);
 
   plant.mutable_gravity_field().set_gravity_vector(
       -9.81 * Vector3d::UnitZ());
 
   //add bushing
-  vas->AddBushing("VA_0_2", "VA_4_5", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  vas->AddBushing("VA_0_0", "VA_1_3", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  vas->AddBushing("VA_0_1", "VA_2_4", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  vas->AddBushing("VA_1_1", "VA_3_4", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  vas->AddBushing("VA_2_0", "VA_3_3", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  vas->AddBushing("VA_2_2", "VA_6_5", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  vas->AddBushing("VA_1_2", "VA_5_5", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  vas->AddBushing("VA_3_2", "VA_7_5", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  vas->AddBushing("VA_4_0", "VA_5_3", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  vas->AddBushing("VA_4_1", "VA_6_4", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  vas->AddBushing("VA_6_0", "VA_7_3", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
-  vas->AddBushing("VA_7_4", "VA_5_1", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  // vas->AddConnect("VA_0_pz", "VA_4_nz", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  // vas->AddConnect("VA_0_px", "VA_1_nx", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  // vas->AddConnect("VA_0_py", "VA_2_ny", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  // vas->AddConnect("VA_1_py", "VA_3_ny", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  // vas->AddConnect("VA_2_px", "VA_3_nx", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  // vas->AddConnect("VA_2_pz", "VA_6_nz", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  // vas->AddConnect("VA_1_pz", "VA_5_nz", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  // vas->AddConnect("VA_3_pz", "VA_7_nz", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  // vas->AddConnect("VA_4_px", "VA_5_nx", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  // vas->AddConnect("VA_4_py", "VA_6_ny", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  // vas->AddConnect("VA_6_px", "VA_7_nx", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+  // vas->AddConnect("VA_7_ny", "VA_5_py", FLAGS_k_xyz, FLAGS_d_xyz, FLAGS_k_012, FLAGS_d_012);
+
   plant.Finalize();
   examples::PrintMBPStats(&plant);
   // examples::PrintBodyIndices(&plant);
 
-  // // connect controller and plant
-  // auto controller = builder.AddSystem(
-  //     SequenceController("vas"));
-  // controller->set_name("controller");
-  // builder.Connect(plant.get_state_output_port(),
-  //                 controller->get_input_port());
-  // builder.Connect(controller->get_output_port(),
-  //                 plant.get_actuation_input_port());
+  // controller->PrintState();
+  Eigen::VectorXd state_send(8);
+  state_send << FLAGS_force, FLAGS_force, FLAGS_force, FLAGS_force, FLAGS_force, FLAGS_force, FLAGS_force, FLAGS_force;
+  controller->SetState(state_send);
+  // controller->PrintState();
+
+  // connect controller and plant
+  builder.Connect(controller->get_output_port(), plant.get_actuation_input_port());
 
   // CALL ALL CONNECTIONS BEFORE THESE TWO LINES:
   auto diagram = builder.Build();
@@ -163,7 +160,7 @@ int do_main() {
 
   // simulator.AdvanceTo(FLAGS_duration);
 
-  const std::string joint_name = "VA_0_2_joint";
+  const std::string joint_name = "VA_0_pz";
   // examples::CSVLogger logger("drake/project/output.csv",std::vector<std::string>{
   //   "time", joint_name, joint_name + " low", joint_name + " upp"});
   examples::CSVLogger logger("drake/project/output.csv",std::vector<std::string>{});

@@ -20,6 +20,21 @@ filegroup(
 )
 
 drake_cc_library(
+    name = "sequence_controller",
+    srcs = [
+      "sequence_controller.cc",
+    ],
+    hdrs = [
+      "sequence_controller.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//multibody/plant",
+        "//multibody/parsing",
+    ],
+)
+
+drake_cc_library(
     name = "vas_plant",
     srcs = [
         "vas_plant.cc",
@@ -56,6 +71,7 @@ drake_cc_binary(
         "//examples/springboard:easy_shape",
         "//examples/springboard:convenience",
         ":vas_plant",
+        ":sequence_controller",
         "@gflags",
     ],
 )

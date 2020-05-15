@@ -34,13 +34,17 @@ class VolumetricActuatorSystem : public systems::LeafSystem<double> {
 
     multibody::ModelInstanceIndex AddVASToPlant();
 
-    void AddBushing(const std::string body0_name, const std::string body1_name, const double k_xyz, const double d_xyz, const double k_012, const double d_012);
+    void AddConnect(const std::string body0_name, const std::string body1_name,
+      const double k_xyz, const double d_xyz, const double k_012, const double d_012);
+    void AddCollide(const std::string body_name,
+      const double static_friction, const double dynamic_friction);
     void InitPose(systems::Context<double>* context);
     std::vector<double> GetJointTranslations(systems::Context<double>* context);
 
   private:
 
-    bool Neighboring(unsigned int i_1, unsigned int i_2);
+    int HasNeighbor(unsigned int i, Vector3d direction);
+    std::string Neighboring(unsigned int i_1, unsigned int i_2);
     void ShowAxes(std::string bodyname, double scale);
 
     multibody::MultibodyPlant<double>* plant_;
