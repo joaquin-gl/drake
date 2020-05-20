@@ -13,6 +13,7 @@
 
 // #include "drake/multibody/tree/revolute_joint.h"
 #include "drake/multibody/tree/prismatic_joint.h"
+#include "drake/multibody/math/spatial_velocity.h"
 
 // #include "drake/multibody/tree/uniform_gravity_field_element.h"
 #include "drake/multibody/tree/linear_bushing_roll_pitch_yaw.h"
@@ -42,6 +43,8 @@ class VolumetricActuatorSystem : public systems::LeafSystem<double> {
 
     std::vector<math::RigidTransformd> GetCenterPoses(systems::Context<double>* context);
     std::vector<double> GetJointTranslations(systems::Context<double>* context);
+    Vector3d GetCoMPosition(systems::Context<double>* context);
+    std::vector<multibody::SpatialVelocity<double>> GetSpatialVelocities(systems::Context<double>* context);
 
   private:
 

@@ -45,7 +45,6 @@ drake_cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//multibody/plant",
-        "//multibody/parsing",
         "//examples/springboard:convenience"
     ],
 )

@@ -259,6 +259,18 @@ std::vector<double> VolumetricActuatorSystem::GetJointTranslations(systems::Cont
   return translations;
 }
 
+Vector3d VolumetricActuatorSystem::GetCoMPosition(systems::Context<double>* context) {
+  return plant_->CalcCenterOfMassPosition(*context, std::vector<multibody::ModelInstanceIndex>{mii_});
+}
+
+std::vector<multibody::SpatialVelocity<double>> VolumetricActuatorSystem::GetSpatialVelocities(systems::Context<double>* context) {
+  std::vector<multibody::SpatialVelocity<double>> spatial_velocities;
+  for (unsigned int i=0; i<shape_.size(); i++) {
+    multibody::SpatialVelocity<double> spatial_velocity = plant_->EvalBodySpatialVelocityInWorld(*context, plant_->GetBodyByName("VA_" + std::to_string(i)));
+    spatial_velocities.push_back(spatial_velocity);
+  }
+  return spatial_velocities;
+}
 // std::vector<double> VolumetricActuatorSystem::GetCenterStates
 
 int VolumetricActuatorSystem::HasNeighbor(unsigned int i, Vector3d direction) {
